@@ -14,7 +14,7 @@ export default function ParallaxLayer({ className, children, offset = 0, scale =
 
   return (
       <div
-        className={"absolute w-full h-full top-0 " + className}
+        className={`${scale > 0 && 'absolute'} w-full h-full ` + className}
         style={{ transform: `translateY(${offset + scrollY * scale}px)` }}
       >
         {children}
