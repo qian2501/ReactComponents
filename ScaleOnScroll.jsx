@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 const breakpoints = {
   sm: 640,
@@ -7,6 +7,8 @@ const breakpoints = {
   xl: 1280,
   '2xl': 1536
 };
+
+const breakpointOrder = ['2xl', 'xl', 'lg', 'md', 'sm'];
 
 export default function ScaleOnScroll({
   children,
@@ -18,102 +20,88 @@ export default function ScaleOnScroll({
   const [scrollY, setScrollY] = useState(0);
   const [breakpoint, setBreakpoint] = useState('');
 
+  // Memoized breakpoint detection
+  const detectBreakpoint = useCallback((width) => {
+    for (const bp of breakpointOrder) {
+      if (width >= breakpoints[bp]) return bp;
+    }
+    return '';
+  }, []);
+
   // Get active breakpoint
   useEffect(() => {
     const updateBreakpoint = () => {
-      const width = window.innerWidth;
-      let bp = '';
-      if (width >= breakpoints['2xl']) bp = '2xl';
-      else if (width >= breakpoints.xl) bp = 'xl';
-      else if (width >= breakpoints.lg) bp = 'lg';
-      else if (width >= breakpoints.md) bp = 'md';
-      else if (width >= breakpoints.sm) bp = 'sm';
-      setBreakpoint(bp);
+      setBreakpoint(detectBreakpoint(window.innerWidth));
     };
 
     updateBreakpoint();
     window.addEventListener('resize', updateBreakpoint);
     return () => window.removeEventListener('resize', updateBreakpoint);
+  }, [detectBreakpoint]);
+
+  // Optimized responsive value parser
+  const parseResponsiveValue = useCallback((value) => {
+    if (typeof value !== 'string' || !value.includes(':')) return value;
+    
+    return value.trim().split(/\s+/).reduce((acc, part) => {
+      const [bp, val] = part.includes(':') ? part.split(':') : ['default', part];
+      acc[bp] = isNaN(val) ? val : parseFloat(val);
+      return acc;
+    }, {});
   }, []);
 
-  // Parse Tailwind-style responsive string (e.g. '2 sm:3 md:4')
-  const parseResponsiveString = (str) => {
-    if (typeof str !== 'string') return str;
+  // Get responsive value with memoization
+  const getResponsiveValue = useCallback((value) => {
+    const parsedValue = parseResponsiveValue(value);
     
-    const parts = str.trim().split(/\s+/);
-    const result = {};
-    
-    parts.forEach(part => {
-      if (part.includes(':')) {
-        const [bp, val] = part.split(':');
-        result[bp] = isNaN(val) ? val : parseFloat(val);
-      } else {
-        result.default = isNaN(part) ? part : parseFloat(part);
-      }
-    });
-    
-    return result;
-  };
-
-  // Get responsive value (Tailwind-style min-width matching)
-  const getValue = (value) => {
-    // Handle Tailwind string syntax
-    const parsedValue = typeof value === 'string' && value.includes(':') 
-      ? parseResponsiveString(value)
-      : value;
-
     if (typeof parsedValue === 'object' && parsedValue !== null) {
-      // Check breakpoints from largest to smallest
-      const breakpointsOrder = ['2xl', 'xl', 'lg', 'md', 'sm'];
-      
-      // Find the largest matching breakpoint
-      for (const bp of breakpointsOrder) {
-        if (breakpoint && breakpoints[bp] <= breakpoints[breakpoint]) {
-          if (parsedValue[bp] !== undefined) return parsedValue[bp];
+      for (const bp of breakpointOrder) {
+        if (breakpoint && breakpoints[bp] <= breakpoints[breakpoint] && parsedValue[bp] !== undefined) {
+          return parsedValue[bp];
         }
       }
-      
-      // Fallback to default or first value
       return parsedValue.default || Object.values(parsedValue)[0] || 1;
     }
     return parsedValue;
-  };
+  }, [breakpoint, parseResponsiveValue]);
 
+  // Scroll handler
   useEffect(() => {
     const handleScroll = () => {
       setScrollY(window.scrollY || document.documentElement.scrollTop);
     };
+
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Get responsive values
-  const responsiveScale = useMemo(() => getValue(scale), [breakpoint, scale]);
-  const responsiveOffset = useMemo(() => getValue(offset), [breakpoint, offset]);
-  const responsiveMaxScroll = useMemo(() => getValue(maxScroll), [breakpoint, maxScroll]);
+  // Memoized responsive values
+  const responsiveScale = useMemo(() => getResponsiveValue(scale), [getResponsiveValue, scale]);
+  const responsiveOffset = useMemo(() => getResponsiveValue(offset), [getResponsiveValue, offset]);
+  const responsiveMaxScroll = useMemo(() => getResponsiveValue(maxScroll), [getResponsiveValue, maxScroll]);
 
-  // Calculate progress based on scroll position
-  const maxScrollPx = typeof responsiveMaxScroll === 'string' && responsiveMaxScroll.endsWith('vh') 
-    ? (parseFloat(responsiveMaxScroll) / 100) * window.innerHeight
-    : responsiveMaxScroll;
+  // Memoized transform calculations
+  const { currentScale, currentTranslateY } = useMemo(() => {
+    const maxScrollPx = typeof responsiveMaxScroll === 'string' && responsiveMaxScroll.endsWith('vh') 
+      ? (parseFloat(responsiveMaxScroll) / 100) * window.innerHeight
+      : responsiveMaxScroll;
+      
+    const progress = Math.min(scrollY / maxScrollPx, 1);
+    const baseScale = responsiveScale;
+    const scale = baseScale - (baseScale - 1) * progress;
     
-  const progress = Math.min(scrollY / maxScrollPx, 1);
-  
-  // Calculate responsive scale
-  const baseScale = responsiveScale;
-  
-  const currentScale = baseScale - (baseScale - 1) * progress;
-  
-  // Calculate translateY
-  const currentTranslateY = typeof responsiveOffset === 'string' && responsiveOffset.endsWith('vh')
-    ? `calc(${responsiveOffset} - ${parseFloat(responsiveOffset) * progress}vh)`
-    : `${responsiveOffset - responsiveOffset * progress}px`;
+    const translateY = typeof responsiveOffset === 'string' && responsiveOffset.endsWith('vh')
+      ? `calc(${responsiveOffset} - ${parseFloat(responsiveOffset) * progress}vh)`
+      : `${responsiveOffset - responsiveOffset * progress}px`;
+
+    return { currentScale: scale, currentTranslateY: translateY };
+  }, [scrollY, responsiveMaxScroll, responsiveScale, responsiveOffset]);
 
   return (
     <div
-      className={'absolute top-0 '+className}
+      className={`absolute top-0 ${className}`}
       style={{
-        transform: `${className.includes('-translate-x-1/2') ? 'translateX(-50%) ' : ''}scale(${currentScale}) translateY(${currentTranslateY})`,
+        transform: `${className.includes('-translate-x-1/2') ? 'translateX(-50%) ' : ''}scale(${currentScale}) translate3d(0, ${currentTranslateY}, 0)`,
       }}
     >
       {children}
