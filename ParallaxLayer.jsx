@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export default function ParallaxLayer({ className, children, offset = 0, scale = 1 }) {
+export default function ParallaxLayer({ className = '', children, offset = 0, scale = 1 }) {
   const [scrollY, setScrollY] = useState(0);
 
   useEffect(() => {
@@ -14,7 +14,7 @@ export default function ParallaxLayer({ className, children, offset = 0, scale =
 
   return (
       <div
-        className={`${scale > 0 && 'absolute'} w-full h-full ` + className}
+        className={`${scale > 0 ? 'absolute' : ''} ` + className}
         style={{ transform: `translateY(${offset + scrollY * scale}px)` }}
       >
         {children}
