@@ -6,7 +6,7 @@ export { default as ItchioLogo } from './ItchioLogo';
 export { default as QQLogo } from './QQLogo';
 export { default as SteamLogo } from './SteamLogo';
 export { default as TikTokLogo } from './TikTokLogo';
-export { default as TwitterLogo } from './TwitterLogo';
+export { default as XLogo } from './XLogo';
 export { default as WeChatLogo } from './WeChatLogo';
 export { default as WeiboLogo } from './WeiboLogo';
 export { default as YouTubeLogo } from './YouTubeLogo';
