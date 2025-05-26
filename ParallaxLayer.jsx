@@ -1,35 +1,34 @@
-import { useState, useEffect, useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 export default function ParallaxLayer({ className = '', children, offset = 0, scale = 1 }) {
-  const [scrollY, setScrollY] = useState(0);
-  const rafId = useRef(null);
+  const layerRef = useRef();
+  const ticking = useRef(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      if (rafId.current) return;
-      
-      rafId.current = requestAnimationFrame(() => {
-        setScrollY(window.scrollY);
-        rafId.current = null;
-      });
+      if (!ticking.current) {
+        window.requestAnimationFrame(() => {
+          const y = window.scrollY;
+          if (layerRef.current) {
+            layerRef.current.style.transform = `translate3d(0, ${offset + y * scale}px, 0)`;
+          }
+          ticking.current = false;
+        });
+        ticking.current = true;
+      }
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (rafId.current) cancelAnimationFrame(rafId.current);
-    };
-  }, []);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [offset, scale]);
 
   return (
-      <div
-        className={`${scale > 0 ? 'absolute' : ''} ` + className}
-        style={{ 
-          transform: `translate3d(0, ${offset + scrollY * scale}px, 0)`,
-          willChange: 'transform'
-        }}
-      >
-        {children}
-      </div>
+    <div
+      ref={layerRef}
+      className={`${scale > 0 ? 'absolute' : ''} ` + className}
+      style={{ willChange: 'transform' }}
+    >
+      {children}
+    </div>
   );
-};
+}
