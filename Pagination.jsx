@@ -34,7 +34,7 @@ export default function Pagination({
             <Button
                 key="first"
                 className={"m-1 " + buttonStyle}
-                disabled={!curPage > 0}
+                disabled={curPage <= 0}
                 onClick={() => handleClick(0)}
             >
                 |&lt;
@@ -43,7 +43,7 @@ export default function Pagination({
             <Button
                 key="prev"
                 className={"m-1 " + buttonStyle}
-                disabled={!curPage > 0}
+                disabled={curPage <= 0}
                 onClick={() => handleClick(curPage - 1)}
             >
                 &lt;
@@ -63,7 +63,7 @@ export default function Pagination({
             <Button
                 key="next"
                 className={"m-1 " + buttonStyle}
-                disabled={!(curPage < maxPage - 1)}
+                disabled={curPage >= maxPage - 1}
                 onClick={() => handleClick(curPage + 1)}
             >
                 &gt;
@@ -72,7 +72,7 @@ export default function Pagination({
             <Button
                 key="last"
                 className={"m-1 " + buttonStyle}
-                disabled={!(curPage < maxPage - 1)}
+                disabled={curPage >= maxPage - 1}
                 onClick={() => handleClick(maxPage - 1)}
             >
                 &gt;|
