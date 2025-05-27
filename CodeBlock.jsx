@@ -4,12 +4,26 @@ import { CheckIcon, CopyIcon } from './Icons';
 export default function CodeBlock({ children, className = '' }) {
     const [copied, setCopied] = useState(false);
 
-    const handleCopy = () => {
-        navigator.clipboard.writeText(children)
-            .then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-            })
+    const handleCopy = async () => {
+        try {
+            // navigator.clipboard works under https and localhost
+            if (window.isSecureContext && navigator.clipboard) {
+                await navigator.clipboard.writeText(children);
+            } else {
+                // but there are scenario where http is used but not localhost, like app running on local network
+                // there is no other options, and execCommand is not going to be removed any time soon, thus keeped
+                const textarea = document.createElement('textarea');
+                textarea.value = children;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Copy failed: ', err);
+        }
     };
 
     return (
